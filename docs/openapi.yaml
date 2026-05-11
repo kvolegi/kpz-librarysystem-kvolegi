@@ -1,0 +1,565 @@
+openapi: "3.0.3"
+info:
+  title: Library System API
+  description: |
+    REST API для системи управління бібліотекою.
+    Підтримує операції CRUD для книг, користувачів, авторів та записів видачі.
+  version: "1.0.0"
+  contact:
+    name: Library System Team
+    email: library@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+  - url: https://library-api.example.com/api/v1
+    description: Production server
+
+tags:
+  - name: Books
+    description: Операції з книгами
+  - name: Users
+    description: Операції з користувачами
+  - name: Authors
+    description: Операції з авторами
+  - name: BorrowRecords
+    description: Операції з записами видачі книг
+
+paths:
+  # ──────────────── BOOKS ────────────────
+  /books:
+    get:
+      tags: [Books]
+      summary: Отримати список усіх книг
+      operationId: listBooks
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Номер сторінки
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Кількість записів на сторінці
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Пошук за назвою або ISBN
+        - name: available
+          in: query
+          schema:
+            type: boolean
+          description: Фільтр за доступністю
+      responses:
+        "200":
+          description: Список книг
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Book"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Books]
+      summary: Додати нову книгу
+      operationId: createBook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookCreate"
+      responses:
+        "201":
+          description: Книга створена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Книга з таким ISBN вже існує
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /books/{book_id}:
+    get:
+      tags: [Books]
+      summary: Отримати книгу за ID
+      operationId: getBook
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "200":
+          description: Дані книги
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Books]
+      summary: Оновити дані книги
+      operationId: updateBook
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookUpdate"
+      responses:
+        "200":
+          description: Книга оновлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    delete:
+      tags: [Books]
+      summary: Видалити книгу
+      operationId: deleteBook
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "204":
+          description: Книга видалена
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Книга наразі видана — видалення неможливе
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ──────────────── USERS ────────────────
+  /users:
+    get:
+      tags: [Users]
+      summary: Отримати список усіх користувачів
+      operationId: listUsers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Список користувачів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+
+    post:
+      tags: [Users]
+      summary: Зареєструвати нового користувача
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: Користувач створений
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Користувач з таким email вже існує
+
+  /users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Отримати користувача за ID
+      operationId: getUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Дані користувача
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Users]
+      summary: Оновити дані користувача
+      operationId: updateUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Користувач оновлений
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Users]
+      summary: Видалити користувача
+      operationId: deleteUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204":
+          description: Користувач видалений
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────── AUTHORS ────────────────
+  /authors:
+    get:
+      tags: [Authors]
+      summary: Отримати список авторів
+      operationId: listAuthors
+      responses:
+        "200":
+          description: Список авторів
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Author"
+
+  # ──────────────── BORROW RECORDS ────────────────
+  /borrow:
+    post:
+      tags: [BorrowRecords]
+      summary: Видати книгу користувачу
+      operationId: borrowBook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BorrowRequest"
+      responses:
+        "201":
+          description: Книга видана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BorrowRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /borrow/{record_id}/return:
+    post:
+      tags: [BorrowRecords]
+      summary: Повернути книгу
+      operationId: returnBook
+      parameters:
+        - name: record_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Книга повернена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BorrowRecord"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Книга вже повернена
+
+components:
+  parameters:
+    BookId:
+      name: book_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Унікальний ідентифікатор книги
+
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Унікальний ідентифікатор користувача
+
+  schemas:
+    # ── Book ──
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+        isbn:
+          type: string
+        publication_year:
+          type: integer
+        genre:
+          type: string
+        quantity:
+          type: integer
+        available_quantity:
+          type: integer
+        author_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    BookCreate:
+      type: object
+      required: [title, isbn, author_id, quantity]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        isbn:
+          type: string
+          pattern: '^\d{10,13}$'
+        publication_year:
+          type: integer
+          minimum: 1000
+          maximum: 2100
+        genre:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        author_id:
+          type: integer
+
+    BookUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        publication_year:
+          type: integer
+        genre:
+          type: string
+        quantity:
+          type: integer
+          minimum: 0
+
+    # ── User ──
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [reader, librarian, admin]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserCreate:
+      type: object
+      required: [first_name, last_name, email]
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [reader, librarian, admin]
+          default: reader
+
+    UserUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        is_active:
+          type: boolean
+
+    # ── Author ──
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        birth_year:
+          type: integer
+        country:
+          type: string
+        biography:
+          type: string
+
+    # ── Borrow Records ──
+    BorrowRequest:
+      type: object
+      required: [user_id, book_id]
+      properties:
+        user_id:
+          type: integer
+        book_id:
+          type: integer
+        due_date:
+          type: string
+          format: date
+
+    BorrowRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        book_id:
+          type: integer
+        borrow_date:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date
+        return_date:
+          type: string
+          format: date-time
+          nullable: true
+        penalty_amount:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [active, returned, overdue]
+
+    # ── Error ──
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Невалідні дані запиту
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: Ресурс не знайдено
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InternalError:
+      description: Внутрішня помилка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
