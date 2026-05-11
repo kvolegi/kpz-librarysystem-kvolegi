@@ -17,39 +17,163 @@ Library System — це REST API система обліку книг біблі
 - **Документація API:** Swagger UI (вбудована у FastAPI)
 - **Контейнеризація:** Docker & Docker Compose
 
-## Структура проєкту
+## 🏗️ Архітектура
+
+Проєкт побудований на **шаровій архітектурі (Layered Architecture)** з чітким розділенням відповідальностей:
 
 ```
-kpz-librarysystem-kvolegi/
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # Точка входу FastAPI застосунку
-│   ├── models/              # SQLAlchemy моделі бази даних
-│   │   ├── __init__.py
-│   │   ├── book.py          # Модель книги
-│   │   ├── reader.py        # Модель читача
-│   │   └── reservation.py   # Модель бронювання
-│   ├── schemas/             # Pydantic схеми (валідація даних)
-│   │   ├── __init__.py
-│   │   ├── book.py
-│   │   └── reader.py
-│   ├── routers/             # FastAPI роутери (ендпоінти)
-│   │   ├── __init__.py
-│   │   ├── books.py         # /books/*
-│   │   └── readers.py       # /readers/*
-│   ├── crud/                # Функції роботи з БД (Create/Read/Update/Delete)
-│   │   ├── __init__.py
-│   │   └── books.py
-│   └── database.py          # Підключення до PostgreSQL
-├── migrations/              # Alembic міграції БД
-├── tests/                   # Тести (pytest)
-│   └── test_books.py
-├── .env.example             # Приклад файлу змінних середовища
-├── .gitignore               # Файли, що ігноруються Git
-├── docker-compose.yml       # PostgreSQL у Docker
-├── requirements.txt         # Список Python залежностей
+┌─────────────────────────────────┐
+│       API Layer (src/api/)      │  HTTP-ендпоінти, async handlers
+├─────────────────────────────────┤
+│   Service Layer (src/services/) │  Бізнес-логіка, валідація
+├─────────────────────────────────┤
+│ Repository Layer (src/repos/)   │  Доступ до даних, CRUD
+├─────────────────────────────────┤
+│   Model Layer (src/models/)     │  Доменні моделі, сутності
+└─────────────────────────────────┘
+```
+
+**Принципи:**
+- **SOLID** — кожен клас має одну відповідальність
+- **DIP** — залежності інжектуються через конструктор
+- **asyncio** — асинхронні операції для I/O
+- **Патерни GoF** — Singleton, Factory, Builder, Strategy, Observer, Facade, Decorator
+
+## 📂 Структура проєкту
+
+```
+├── src/
+│   ├── api/              # API Layer — async ендпоінти
+│   │   └── books_async.py
+│   ├── core/             # Конфігурація, логування, виключення
+│   │   ├── config.py          # Singleton
+│   │   ├── exceptions.py      # Ієрархія виключень
+│   │   └── logger.py          # JSON-логування
+│   ├── database/
+│   │   └── schema.sql         # DDL (PostgreSQL, 3NF)
+│   ├── events/
+│   │   └── observer.py        # Observer патерн
+│   ├── models/
+│   │   └── book_builder.py    # Builder патерн
+│   ├── repositories/          # Repository Layer
+│   ├── services/              # Service Layer
+│   │   ├── clean_code.py      # SOLID-рефакторинг
+│   │   ├── dirty_code.py      # Приклад порушень SRP/DIP
+│   │   ├── discount.py        # TDD-реалізація
+│   │   ├── good_service.py    # Refactored (Extract Function)
+│   │   ├── bad_service.py     # Code smells
+│   │   ├── library_facade.py  # Facade патерн
+│   │   ├── notification_factory.py  # Factory Method
+│   │   └── penalty_strategy.py     # Strategy патерн
+│   └── utils/
+│       └── decorators.py      # @timer, @log
+├── tests/
+│   ├── test_services.py       # Unit-тести (MagicMock)
+│   ├── test_api.py            # Інтеграційні тести (SQLite)
+│   └── test_discount.py       # TDD-тести
+├── demo/
+│   └── patterns_demo.py       # Демонстрація патернів
+├── docs/
+│   ├── adr/
+│   │   └── 001-architecture.md
+│   ├── metrics/
+│   │   └── README.md
+│   └── openapi.yaml           # OpenAPI 3.0
+├── Dockerfile
+├── docker-compose.yml
+├── .github/workflows/ci.yml
+├── pytest.ini
+├── requirements.txt
+├── CHANGELOG.md
 └── README.md
 ```
+
+## 🚀 Швидкий старт
+
+### Передумови
+
+- Python 3.11+
+- Docker та Docker Compose (опціонально)
+
+### Локальний запуск
+
+```bash
+# Клонувати репозиторій
+git clone https://github.com/username/library-system.git
+cd library-system
+
+# Створити віртуальне середовище
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
+
+# Встановити залежності
+pip install -r requirements.txt
+
+# Запустити демо патернів
+python -m demo.patterns_demo
+
+# Запустити async-демо
+python -m src.api.books_async
+
+# Запустити тести
+pytest -v
+pytest --cov=src --cov-report=term-missing
+```
+
+### Docker Compose
+
+```bash
+# Збудувати та запустити
+docker-compose up --build -d
+
+# Переглянути логи
+docker-compose logs -f web
+
+# Зупинити
+docker-compose down
+
+# Зупинити та видалити volumes
+docker-compose down -v
+```
+
+**Сервіси:**
+
+| Сервіс | Порт | Опис |
+|--------|------|------|
+| `web` | 8000 | Python API сервер |
+| `postgres` | 5432 | PostgreSQL 16 |
+
+## 🧪 Тестування
+
+```bash
+# Усі тести
+pytest -v
+
+# Тільки unit-тести
+pytest -m unit -v
+
+# Тільки інтеграційні
+pytest -m integration -v
+
+# З покриттям
+pytest --cov=src --cov-report=html
+open htmlcov/index.html
+```
+
+## 🎨 Патерни проєктування
+
+| Патерн | Тип | Файл | Опис |
+|--------|-----|------|------|
+| Singleton | Породжуючий | `src/core/config.py` | Конфігурація додатку |
+| Factory Method | Породжуючий | `src/services/notification_factory.py` | Створення сповіщень |
+| Builder | Породжуючий | `src/models/book_builder.py` | Побудова об'єкта Book |
+| Strategy | Поведінковий | `src/services/penalty_strategy.py` | Розрахунок штрафів |
+| Observer | Поведінковий | `src/events/observer.py` | Подієва система |
+| Decorator | Структурний | `src/utils/decorators.py` | @timer, @log |
+| Facade | Структурний | `src/services/library_facade.py` | Спрощений інтерфейс |
+
+## 📊 Метрики коду
 
 ## Як запустити
 
